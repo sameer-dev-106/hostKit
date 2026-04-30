@@ -10,6 +10,8 @@ import { config } from "./config/config.js";
 // Import routes and middlewares
 import handleError from "./middlewares/error.middleware.js";
 import authRouter from "./routes/auth.routes.js";
+import projectRoutes from "./routes/project.routes.js";
+import deploymentRoutes from "./routes/deployment.routes.js";
 
 const app = express();
 
@@ -33,7 +35,7 @@ passport.use(new GoogleStrategy({
     return done(null, profile);
 }));
 
-// 
+// Passport configuration
 passport.use(new GitHubStrategy({
     clientID: config.GITHUB_CLIENT_ID,
     clientSecret: config.GITHUB_CLIENT_SECRET,
@@ -49,6 +51,12 @@ app.get("/", (_req, res) => {
 
 // Auth Routes
 app.use("/api/auth", authRouter);
+
+// Project Routes 
+app.use("/api/projects", projectRoutes);
+
+// Deployment Routes
+app.use("/api/deploy", deploymentRoutes);
 
 // Error handling middleware
 app.use(handleError);
