@@ -11,6 +11,7 @@ import { config } from "./config/config.js";
 import handleError from "./middlewares/error.middleware.js";
 import authRouter from "./routes/auth.routes.js";
 import projectRoutes from "./routes/project.routes.js";
+import deploymentRoutes from "./routes/deployment.routes.js";
 
 const app = express();
 
@@ -53,6 +54,9 @@ app.use("/api/auth", authRouter);
 
 // Project Routes 
 app.use("/api/projects", projectRoutes);
+
+// Deployment Routes
+app.use("/api/deploy", deploymentRoutes);
 
 // Error handling middleware
 app.use(handleError);
