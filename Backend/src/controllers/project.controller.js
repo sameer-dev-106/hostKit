@@ -1,5 +1,10 @@
 import * as projectService from "../services/project.service.js";
 
+/**
+ * @route POST /api/projects
+ * @desc Create a new project
+ * @access Private
+ */
 export const createProject = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -16,6 +21,11 @@ export const createProject = async (req, res) => {
     }
 };
 
+/**
+ * @route GET /api/projects
+ * @desc Get all projects for the authenticated user
+ * @access Private
+ */
 export const getUserProjects = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -32,6 +42,11 @@ export const getUserProjects = async (req, res) => {
     }
 };
 
+/**
+ * @route GET /api/projects/:id
+ * @desc Get a single project by ID
+ * @access Private
+ */
 export const getProjectById = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -52,6 +67,11 @@ export const getProjectById = async (req, res) => {
     }
 };
 
+/**
+ * @route DELETE /api/projects/:id
+ * @desc Delete a project by ID
+ * @access Private
+ */
 export const deleteProject = async (req, res) => {
     try {
         const userId = req.user.id;
