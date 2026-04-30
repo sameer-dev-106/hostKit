@@ -31,6 +31,11 @@ const projectSchema = new mongoose.Schema({
         of: String,
         default: {},
     },
+    status: {
+        type: String,
+        enum: ["pending", "building", "success", "failed"],
+        default: "pending"
+    }
 },
     { timestamps: true, }
 );
