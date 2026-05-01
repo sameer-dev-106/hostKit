@@ -14,7 +14,7 @@ deploymentRoutes.use(authUser);
  * @desc Trigger a new deployment for a project
  * @access Private
  */
-deploymentRoutes.post("/:projectId", deploymentController.createDeployment);
+deploymentRoutes.post("/:projectId", deploymentController.createDeploymentController);
 
 
 /**

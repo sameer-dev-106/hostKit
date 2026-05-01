@@ -5,19 +5,16 @@ import * as deploymentService from "../services/deployment.service.js";
  * @desc Trigger a new deployment for a project
  * @access Private
  */
-export const createDeployment = async (req, res, next) => {
+export const createDeploymentController = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const { projectId } = req.params;
 
-        const deployment = await deploymentService.createDeployment(
-            userId,
-            projectId
-        );
+        const deployment = await deploymentService.createDeployment(userId, projectId);
 
         res.status(201).json({
             success: true,
-            message: "Deployment triggered successfully",
+            message: "Deployment started",
             data: deployment,
         });
     } catch (error) {
