@@ -1,7 +1,7 @@
 import Deployment from "../models/deployment.model.js";
 import Project from "../models/project.model.js";
 
-import { deployProject } from "./project.service.js";
+import deploymentQueue from "../queue/deployment.queue.js";
 
 // CREATE DEPLOYMENT
 export const createDeployment = async (userId, projectId) => {
@@ -21,13 +21,11 @@ export const createDeployment = async (userId, projectId) => {
     });
 
     // start deployment (async)
-    deployProject(project)
-        .then(async () => {
-            await updateStatus(deployment._id, "success");
-        })
-        .catch(async () => {
-            await updateStatus(deployment._id, "failed");
-        });
+    await deploymentQueue.add("deploy-job", {
+        deploymentId: deployment._id,
+    });
+
+    console.log("Adding job to queue:", deployment._id);
 
     return deployment;
 };
