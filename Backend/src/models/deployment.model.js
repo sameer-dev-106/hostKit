@@ -28,13 +28,15 @@ const deploymentSchema = new mongoose.Schema(
             enum: ["pending", "building", "running", "failed", "success", "stopped"],
             default: "pending"
         },
-        logs: {
-            type: [String],
-            default: [],
-        },
         commitId: {
             type: String,
         },
+        aiAnalysis: {
+            error: String,
+            explanation: String,
+            fix: String,
+            severity: String
+        }
     },
     { timestamps: true }
 );

@@ -17,6 +17,81 @@ import Project from "../models/project.model.js";
 const execAsync = promisify(exec);
 const git = simpleGit();
 
+import { analyzeError } from "../ai/ai.service.js";
+import DeploymentLog from "../models/deploymentLog.model.js";
+
+
+
+const detectEnvVariables = (projectPath) => {
+    const envSet = new Set();
+
+    const scanFile = (filePath) => {
+        const content = fs.readFileSync(filePath, "utf-8");
+
+        // match process.env.VAR_NAME
+        const matches = content.match(/process\.env\.([A-Z0-9_]+)/g);
+
+        if (matches) {
+            matches.forEach(match => {
+                const key = match.split(".")[2];
+                envSet.add(key);
+            });
+        }
+    };
+
+    const walk = (dir) => {
+        const files = fs.readdirSync(dir);
+
+        files.forEach(file => {
+            const fullPath = path.join(dir, file);
+
+            if (["node_modules", ".git", "dist", "build"].includes(file)) return;
+
+            if (fs.statSync(fullPath).isDirectory()) {
+                walk(fullPath);
+            } else if (file.endsWith(".js") || file.endsWith(".ts")) {
+                scanFile(fullPath);
+            }
+        });
+    };
+
+    walk(projectPath);
+
+    return Array.from(envSet);
+};
+
+const detectProjectType = (projectPath) => {
+    const packagePath = path.join(projectPath, "package.json");
+
+    if (!fs.existsSync(packagePath)) return "static";
+
+    const pkg = JSON.parse(fs.readFileSync(packagePath, "utf-8"));
+
+    const deps = {
+        ...pkg.dependencies,
+        ...pkg.devDependencies
+    };
+
+    const scripts = pkg.scripts || {};
+
+    if (deps.next) return "next";
+
+    if (deps.react) {
+        if (scripts.build && scripts.build.includes("vite")) {
+            return "vite-react";
+        }
+        return "react";
+    }
+
+    if (deps.vite) return "vite";
+
+    if (deps.express || deps.koa || deps.fastify) return "node";
+
+    if (scripts.start) return "node";
+
+    return "unknown";
+};
+
 // Mongo connect
 await mongoose.connect(config.MONGO_URI);
 console.log("✅ Worker Mongo connected");
@@ -48,8 +123,9 @@ const emitLog = async (deploymentId, message) => {
     const log = `[${new Date().toISOString()}] ${message}`;
 
     // DB mein save karo
-    await Deployment.findByIdAndUpdate(deploymentId, {
-        $push: { logs: log }
+    await DeploymentLog.create({
+        deploymentId,
+        message: log
     });
 
     // Redis se frontend ko real-time bhejo
@@ -63,10 +139,13 @@ const emitLog = async (deploymentId, message) => {
 
 console.log("Worker started...");
 
+
 new Worker(
     "deployment-queue",
     async (job) => {
         const { deploymentId } = job.data;
+        let missingEnvs = [];
+        let project = null;
         console.log("Job received:", deploymentId);
 
         try {
@@ -74,7 +153,7 @@ new Worker(
             const deployment = await Deployment.findById(deploymentId);
             if (!deployment) throw new Error("Deployment not found");
 
-            const project = await Project.findById(deployment.projectId);
+            project = await Project.findById(deployment.projectId);
             if (!project) throw new Error("Project not found");
 
             await emitLog(deploymentId, "Deployment started");
@@ -95,39 +174,163 @@ new Worker(
             await projectGit.checkout(project.branch || "main");
             await emitLog(deploymentId, `Repo cloned — branch: ${project.branch || "main"}`);
 
-            // Detect Project Type
-            const isNode = fs.existsSync(path.join(projectPath, "package.json"));
-            if (!isNode) throw new Error("Unsupported project type — package.json not found");
+            const projectType = detectProjectType(projectPath);
+            await emitLog(deploymentId, `📦 Detected project type: ${projectType}`);
 
-            await emitLog(deploymentId, "Detected Node.js project");
+            const detectedEnvs = detectEnvVariables(projectPath);
+            if(detectedEnvs.length > 0){
+                await emitLog(deploymentId, `Detected environment variables: ${detectedEnvs.join(", ")}`);
+            }else{
+                await emitLog(deploymentId, `No environment variables detected in code`);
+            }
+
+            const providedEnvs = Object.keys(project.envs || {});
+            missingEnvs = detectedEnvs.filter(env => !providedEnvs.includes(env));
+            
+            if(missingEnvs.length > 0){
+                await emitLog(deploymentId, `⚠️ Missing environment variables: ${missingEnvs.join(", ")}`);
+            }else{
+                await emitLog(deploymentId, `All detected environment variables are provided`);
+            }
+
+            // Detect Project Type
+            if (projectType === "unknown") {
+                throw new Error("Unsupported project type");
+            }
+
+            
 
             // Auto Dockerfile
             const dockerfilePath = path.join(projectPath, "Dockerfile");
             if (!fs.existsSync(dockerfilePath)) {
-                await emitLog(deploymentId, "⚠️ No Dockerfile found — generating one automatically");
 
-                fs.writeFileSync(
-                    dockerfilePath,
-                    `FROM node:20-alpine
-                    WORKDIR /app
-                    COPY package*.json ./
-                    RUN npm install --production
-                    COPY . .
-                    EXPOSE 3000
-                    CMD ["npm", "start"]`
-                );
-            } else {
-                await emitLog(deploymentId, "✅ Dockerfile found");
+                // STATIC PROJECT
+                if (projectType === "static") {
+            
+                    const hasDist = fs.existsSync(path.join(projectPath, "dist"));
+const hasBuild = fs.existsSync(path.join(projectPath, "build"));
+const hasIndexHtml = fs.existsSync(path.join(projectPath, "index.html"));
+
+await emitLog(deploymentId, "Static project detected");
+
+if (hasDist) {
+    await emitLog(deploymentId, "Using dist folder");
+    const buildFolder = fs.existsSync(path.join(projectPath, "dist"))
+  ? "dist"
+  : "build";
+
+    fs.writeFileSync(dockerfilePath, `
+        FROM node:20-alpine AS builder
+        WORKDIR /app
+        
+        ARG VITE_API_URL
+        ENV VITE_API_URL=$VITE_API_URL
+        
+        COPY package*.json ./
+        RUN npm install
+        COPY . .
+        RUN npm run build
+        
+        FROM nginx:alpine
+        COPY --from=builder /app/${buildFolder} /usr/share/nginx/html
+        EXPOSE 80
+        CMD ["nginx", "-g", "daemon off;"]
+        `);
+
+} else if (hasBuild) {
+    await emitLog(deploymentId, "Using build folder");
+
+    fs.writeFileSync(dockerfilePath, `
+FROM nginx:alpine
+COPY build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+    `);
+
+} else if (hasIndexHtml) {
+    await emitLog(deploymentId, "Using root index.html");
+
+    fs.writeFileSync(dockerfilePath, `
+FROM nginx:alpine
+COPY . /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+    `);
+
+} else {
+    throw new Error("No build output found (dist/build/index.html missing)");
+}
+            
+                // REACT / VITE PROJECT
+                } else if (
+                    projectType === "react" ||
+                    projectType === "vite" ||
+                    projectType === "vite-react"
+                ) {
+            
+                    await emitLog(deploymentId, "React/Vite project detected, building project");
+            
+                    fs.writeFileSync(dockerfilePath, `
+            FROM node:20-alpine AS builder
+            WORKDIR /app
+
+            ARG VITE_API_URL
+            ENV VITE_API_URL=$VITE_API_URL
+
+            COPY package*.json ./
+            RUN npm install
+            COPY . .
+            RUN npm run build
+            
+            FROM nginx:alpine
+            COPY --from=builder /app/dist /usr/share/nginx/html
+            EXPOSE 80
+            CMD ["nginx", "-g", "daemon off;"]
+                    `);
+            
+                // NODE PROJECT
+                } else {
+            
+                    await emitLog(deploymentId, "Generating Node Dockerfile");
+            
+                    fs.writeFileSync(dockerfilePath, `
+            FROM node:20-alpine
+            WORKDIR /app
+            COPY package*.json ./
+            RUN npm install --production
+            COPY . .
+            EXPOSE 3000
+            CMD ["npm", "start"]
+                    `);
+                }
             }
 
             // Update Status to Building
             await Deployment.findByIdAndUpdate(deploymentId, { status: "building" });
             await emitLog(deploymentId, "🔨 Building Docker image...");
 
+
+
+
             // Build Docker Image
+            const imageName = `project-${deploymentId}-${Date.now()}`;
+            const envEntries = Object.entries(project.envs?.toJSON?.() || project.envs || {});
+
+        // build time
+        const buildArgs = envEntries
+        .map(([k, v]) => `--build-arg ${k}=${v}`)
+        .join(" ");
+
+        // runtime
+        const envFlags = envEntries
+        .map(([k, v]) => `-e ${k}="${v}"`)
+        .join(" ");
             const { stdout: buildOut, stderr: buildErr } = await execAsync(
-                `docker build -t project-${deploymentId} .`,
-                { cwd: projectPath }
+                `docker build ${buildArgs} -t ${imageName} .`,
+                { 
+                    cwd: projectPath,
+                    timeout: 5 * 60 * 1000 
+                }
             );
 
             if (buildErr) await emitLog(deploymentId, `⚠️ Build warnings: ${buildErr}`);
@@ -135,27 +338,37 @@ new Worker(
 
             // Port Selection 
             const usedPorts = await Deployment.distinct("port", { status: "running" });
+            // Port Selection (random)
+            
             const port = findAvailablePort(4000, 5000, usedPorts);
             await emitLog(deploymentId, `🔌 Assigned port: ${port}`);
-
-            // Env Vars
-            const envEntries = Object.entries(project.envs?.toJSON?.() || project.envs || {});
-            const envFlags = envEntries
-                .map(([k, v]) => `-e ${k}="${v}"`)
-                .join(" ");
 
             if (envEntries.length > 0) {
                 await emitLog(deploymentId, `🔐 Injecting ${envEntries.length} environment variable(s)`);
             }
 
             // Run Container 
+            const containerName = `container-${deploymentId}`;
+            const containerPort = projectType === "static" ? 80 : 3000;
+
+             // Cleanup old container if exists (same deploymentId se pehle wala)
+            await execAsync(`docker rm -f ${containerName}`).catch(() => {}); 
+            
+            // Run new container
             await emitLog(deploymentId, "🐳 Starting container...");
 
-            const containerName = `container-${deploymentId}`;
             await execAsync(
-                `docker run -d -p ${port}:3000 ${envFlags} --name ${containerName} project-${deploymentId}`
+                `docker run -d \
+                --memory="512m" \
+                --cpus="0.5" \
+                --restart unless-stopped \
+                -p ${port}:${containerPort} \
+                ${envFlags} \
+                --name ${containerName} ${imageName}`,
+                {
+                    timeout: 60 * 1000 
+                }
             );
-
             // Save Success
             const deploymentUrl = `http://localhost:${port}`;
 
@@ -171,14 +384,57 @@ new Worker(
 
             console.log("DEPLOY DONE:", deploymentUrl);
 
-        } catch (err) {
+            
+
+        }
+         catch (err) {
             console.log("DEPLOY FAILED:", err.message);
 
             await emitLog(deploymentId, `❌ Deployment failed: ${err.message}`);
 
-            await Deployment.findByIdAndUpdate(deploymentId, {
-                status: "failed",
-            });
+            try{
+                //fetch logs from  deployment logs collection
+                const logsData = await DeploymentLog.find({deploymentId})
+                .sort({ createdAt: -1 })
+                const logs = logsData.slice(0, 50).map(l => l.message);
+                if (!project) {
+                    const deployment = await Deployment.findById(deploymentId);
+                    if (deployment) {
+                        project = await Project.findById(deployment.projectId);
+                    }
+                }
+
+                //Ai Analysis
+                const aiResult = await analyzeError({
+                    logs,
+                    framework: project.framework || "Node.js",
+                    missingEnvs,
+                })
+                
+
+                // Save AI analysis to deployment record
+                await Deployment.findByIdAndUpdate(deploymentId,{
+                    status: "failed",
+                    aiAnalysis:{
+                        error: aiResult.errorType,
+                        explanation: aiResult.explanation,
+                        fix: aiResult.fix,
+                        severity: aiResult.severity
+                    }
+                })
+
+                //Emit AI analysis to logs for frontend display
+                await emitLog(deploymentId, `Ai Error:${aiResult.errorType}`);
+                await emitLog(deploymentId, `Reason: ${aiResult.explanation}`);
+                await emitLog(deploymentId, `Fix Suggestion:${aiResult.fix}`);
+            } catch(aiErr){
+                console.log("AI analysis failed:", aiErr.message);
+
+                await emitLog(deploymentId, `⚠️ AI analysis failed: ${aiErr.message}`);
+                 await Deployment.findByIdAndUpdate(deploymentId,{
+                    status: "failed",
+                 })
+            }
         }
     },
     { connection }
