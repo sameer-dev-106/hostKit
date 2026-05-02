@@ -1,0 +1,130 @@
+// ============================================
+// HOSTKIT AUTH — SCSS VARIABLES & MIXINS
+// ============================================
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
+
+// Colors
+$primary:        #5227FF;
+$primary-light:  #7B4FFF;
+$lavender:       #B19EEF;
+$pink:           #FF9FFC;
+$bg-deep:        #07071a;
+$bg-dark:        #09091f;
+$bg-card:        #0f0f2a;
+$border:         rgba(255, 255, 255, 0.08);
+$border-focus:   rgba(82, 39, 255, 0.7);
+$text-white:     #ffffff;
+$text-muted:     rgba(177, 158, 239, 0.6);
+$text-faint:     rgba(177, 158, 239, 0.35);
+
+// Typography
+$font:           'Geist', system-ui, sans-serif;
+$font-serif:     Georgia, 'Times New Roman', serif;
+
+// Transitions
+$transition:     all 0.2s ease;
+$transition-slow: all 0.4s ease;
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin glass {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid $border;
+  backdrop-filter: blur(12px);
+}
+
+@mixin input-base {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: $font;
+  outline: none;
+  transition: $transition;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid $border;
+  color: #e2e8f0;
+
+  &::placeholder {
+    color: rgba(177, 158, 239, 0.25);
+  }
+
+  &:focus {
+    border-color: $border-focus;
+    box-shadow: 0 0 0 3px rgba(82, 39, 255, 0.12);
+  }
+}
+
+@mixin btn-primary {
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: $font;
+  color: white;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, $primary 0%, $primary-light 100%);
+  box-shadow: 0 4px 24px rgba(82, 39, 255, 0.35);
+  transition: $transition;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(82, 39, 255, 0.45);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(82, 39, 255, 0.5);
+  }
+}
+
+@mixin oauth-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: $font;
+  color: #e2e8f0;
+  border: 1px solid $border;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: $transition;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
