@@ -1,0 +1,93 @@
+   @mixin flexBox($justify: center, $align: center, $gap: 0) {
+       display: flex;
+       justify-content: $justify;
+       align-items: $align;
+       gap: $gap;
+   }
+
+   main {
+       height: 100vh;
+       @include flexBox(center, center, 0);
+       flex-direction: column;
+
+       h1{
+        font-size: 1.5rem;
+       }
+
+
+       .formContainer {
+        width: 400px;
+           background-color: rgba(32, 32, 32, 0.362);
+           display: flex;
+           flex-direction: column;
+           gap: 1rem;
+           padding: 1.5rem 3rem;
+           border-radius: 1rem;
+
+
+           form {
+
+               @include flexBox(center, center, 1rem);
+               flex-direction: column;
+
+               width: 100%;
+
+               .field {
+                   display: flex;
+                   flex-direction: column;
+                   gap: 0.4rem;
+                   width: 100%;
+               }
+
+            //    .password {
+            //        display: flex;
+            //        flex-direction: column;
+            //        gap: 0.4rem;
+            //        width: 100%;
+            //    }
+
+               input {
+                   background-color: transparent;
+                   box-shadow: 1px 1px 2px black;
+                   border-radius: 10px;
+                   border: none;
+                   padding: 0.5rem 0.4rem;
+                   color: white;
+
+               }
+
+
+               button {
+                   width: 100%;
+                   border: none;
+                   padding: 0.5rem 0rem;
+                   background-color: transparent;
+                   background-color: #212528;
+                   box-shadow: 1px 1px 2px black;
+                   border-radius: 10px;
+                   color: white;
+                   transition: all ease-in 0.8s;
+                   cursor: pointer;
+
+                   &:active {
+                       scale: 0.9;
+                   }
+               }
+
+               .googleButton {
+                   background-color: #3C7EEF;
+                   display: flex;
+                   gap: 1rem;
+                   padding: 0.5rem;
+               }
+
+               .githubButton {
+                   background-color: #212528;
+                   display: flex;
+                   gap: 1rem;
+                   padding: 0.5rem;
+               }
+
+           }
+       }
+   }
