@@ -101,19 +101,21 @@ export const getProjectById = async (userId, projectId) => {
  * @throws {Error} - Throws an error if the project is not found or unauthorized
  */
 export const deleteProject = async (userId, projectId) => {
-    try {
-        const project = await Project.findOneAndDelete({
-            _id: projectId,
-            userId,
-        });
+    const project = await Project.findOneAndDelete({ _id: projectId, userId });
 
-        if (!project) {
-            throw new Error("Project not found or unauthorized");
+    const deployments = await Deployment.find({ projectId, status: 'running' });
+
+    for (const dep of deployments) {
+        try {
+            await execAsync(`docker stop ${dep.containerId}`);
+            await execAsync(`docker rm ${dep.containerId}`);
+            await execAsync(`docker rmi project-${dep._id}`);
+        } catch (e) {
+            console.log("Container cleanup error:", e.message);
         }
-
-        return project;
-    } catch (error) {
-        throw error;
     }
+
+    await Deployment.deleteMany({ projectId });
+    return project;
 };
 
