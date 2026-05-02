@@ -126,7 +126,7 @@ export default function AuthLeft() {
           ctx.fillStyle = grad
           ctx.fill()
         } catch (e) {
-          // Skip this orb if gradient creation fails
+          console.log(e);
           return
         }
       })
