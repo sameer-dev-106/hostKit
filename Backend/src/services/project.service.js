@@ -1,4 +1,5 @@
 import Project from "../models/project.model.js";
+import Deployment from "../models/deployment.model.js";
 
 import axios from "axios";
 import simpleGit from "simple-git";
