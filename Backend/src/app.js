@@ -12,6 +12,7 @@ import handleError from "./middlewares/error.middleware.js";
 import authRouter from "./routes/auth.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import deploymentRoutes from "./routes/deployment.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 const app = express();
 
@@ -57,6 +58,9 @@ app.use("/api/projects", projectRoutes);
 
 // Deployment Routes
 app.use("/api/deploy", deploymentRoutes);
+
+// Admin Routes
+app.use("/api/admin", adminRoutes);
 
 // Error handling middleware
 app.use(handleError);
