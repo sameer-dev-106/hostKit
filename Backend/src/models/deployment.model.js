@@ -14,10 +14,19 @@ const deploymentSchema = new mongoose.Schema(
             required: true,
             index: true,
         },
+        url: {
+            type: String
+        },
+        port: {
+            type: Number
+        },
+        containerId: {
+            type: String
+        },
         status: {
             type: String,
-            enum: ["pending", "building", "running", "failed", "success"],
-            default: "pending",
+            enum: ["pending", "building", "running", "failed", "success", "stopped"],
+            default: "pending"
         },
         logs: {
             type: [String],

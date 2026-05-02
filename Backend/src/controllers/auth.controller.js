@@ -149,16 +149,20 @@ export async function register(req, res) {
 
     await sendEmail({
         to: email,
-        subject: "Welcome to Hostkit!",
+        subject: "Verify your email - Hostkit",
         html: `
-                <p>Hi ${username},</p>
-                <p>Thank you for registering at <strong>Hostkit</strong>. We're excited to have you on board!</p>
-                <p>Please verify your email address by clicking the link below:</p>
-                <a href="http://localhost:3000/api/auth/verify-email?token=${emailVerificationToken}">Verify Email</a>
-                <p>If you did not create an account, please ignore this email.</p>
-                <p>Best regards,<br>The Perplexity Team</p>
-        `
-    })
+        <h2>Welcome to Hostkit 🚀</h2>
+        <p>Hi ${username},</p>
+
+        <p>Click below to verify your email:</p>
+
+        <a href="${config.BASE_URL}/api/auth/verify-email?token=${emailVerificationToken}">
+            Verify Email
+        </a>
+
+        <p>If you didn't create this account, ignore this email.</p>
+    `,
+    });
 
     res.status(201).json({
         message: "User registered successfully",
@@ -213,7 +217,12 @@ export async function login(req, res) {
         username: user.username,
     }, config.JWT_SECRET, { expiresIn: '7d' });
 
-    res.cookie("token", token);
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.status(200).json({
         message: "Login successful",

@@ -1,4 +1,5 @@
 import Project from "../models/project.model.js";
+import Deployment from "../models/deployment.model.js";
 
 import axios from "axios";
 import simpleGit from "simple-git";
@@ -34,68 +35,6 @@ export const verifyGithubRepo = async (repoUrl) => {
 };
 
 /**
- * Deploy the project by cloning the repository, checking out the specified branch, installing dependencies, and building the project
- * @param {Object} project - The project object containing deployment details
- * @returns {Promise<boolean>} - Returns true if deployment is successful, false otherwise
- */
-export const deployProject = async (project) => {
-    try {
-        const projectPath = path.join("deployments", project._id.toString());
-
-        // clean folder
-        if (fs.existsSync(projectPath)) {
-            fs.rmSync(projectPath, { recursive: true, force: true });
-        }
-
-        fs.mkdirSync(projectPath, { recursive: true });
-
-        project.status = "building";
-        await project.save();
-
-        console.log("Cloning repo...");
-
-        await git.clone(project.repoUrl, projectPath);
-
-        console.log("Clone done");
-
-        const projectGit = simpleGit(projectPath);
-        await projectGit.checkout(project.branch);
-
-        console.log("Installing deps...");
-
-        const { exec } = await import("child_process");
-
-        exec(
-            "npm install && npm run build",
-            { cwd: projectPath },
-            (err, stdout, stderr) => {
-                if (err) {
-                    console.log("BUILD ERROR:", stderr);
-
-                    project.status = "failed";
-                    project.save();
-                    return;
-                }
-
-                console.log("BUILD SUCCESS:", stdout);
-
-                project.status = "success";
-                project.save();
-            }
-        );
-
-        return true;
-    } catch (error) {
-        console.log("DEPLOY ERROR:", error);
-
-        project.status = "failed";
-        await project.save();
-
-        return false; // throw mat kar, crash avoid
-    }
-};
-
-/**
  * Create a new project by verifying the GitHub repository and deploying it
  * @param {string} userId - The ID of the user creating the project
  * @param {Object} data - The project data containing repoUrl, branch, and other details
@@ -112,9 +51,6 @@ export const createProject = async (userId, data) => {
             ...data,
             branch: data.branch || repoInfo.defaultBranch,
         });
-
-        // deploy start (sync)
-        await deployProject(project);
 
         return project;
     } catch (error) {
@@ -166,19 +102,21 @@ export const getProjectById = async (userId, projectId) => {
  * @throws {Error} - Throws an error if the project is not found or unauthorized
  */
 export const deleteProject = async (userId, projectId) => {
-    try {
-        const project = await Project.findOneAndDelete({
-            _id: projectId,
-            userId,
-        });
+    const project = await Project.findOneAndDelete({ _id: projectId, userId });
 
-        if (!project) {
-            throw new Error("Project not found or unauthorized");
+    const deployments = await Deployment.find({ projectId, status: 'running' });
+
+    for (const dep of deployments) {
+        try {
+            await execAsync(`docker stop ${dep.containerId}`);
+            await execAsync(`docker rm ${dep.containerId}`);
+            await execAsync(`docker rmi project-${dep._id}`);
+        } catch (e) {
+            console.log("Container cleanup error:", e.message);
         }
-
-        return project;
-    } catch (error) {
-        throw error;
     }
+
+    await Deployment.deleteMany({ projectId });
+    return project;
 };
 

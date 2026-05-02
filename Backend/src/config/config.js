@@ -1,5 +1,8 @@
-import dotenv from "dotenv"
-dotenv.config()
+import dotenv from "dotenv";
+
+dotenv.config({
+    path: "./.env"
+})
 
 if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is not defined in environment variables")
@@ -7,6 +10,10 @@ if (!process.env.MONGO_URI) {
 
 if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is not defined in environment variables")
+}
+
+if (!process.env.BASE_URL) {
+    throw new Error("BASE_URL is not defined in environment variables")
 }
 
 if (!process.env.GOOGLE_CLIENT_ID) {
@@ -32,5 +39,6 @@ export const config = {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+    BASE_URL: process.env.BASE_URL,
     NODE_ENV: process.env.NODE_ENV || "development",
 }

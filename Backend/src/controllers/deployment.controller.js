@@ -5,19 +5,16 @@ import * as deploymentService from "../services/deployment.service.js";
  * @desc Trigger a new deployment for a project
  * @access Private
  */
-export const createDeployment = async (req, res, next) => {
+export const createDeploymentController = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const { projectId } = req.params;
 
-        const deployment = await deploymentService.createDeployment(
-            userId,
-            projectId
-        );
+        const deployment = await deploymentService.createDeployment(userId, projectId);
 
         res.status(201).json({
             success: true,
-            message: "Deployment triggered successfully",
+            message: "Deployment started",
             data: deployment,
         });
     } catch (error) {
@@ -71,6 +68,38 @@ export const getDeploymentsByProject = async (req, res, next) => {
             message: "Deployments fetched successfully",
             data: deployments,
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @route POST /api/deploy/stop/:deploymentId
+ * @desc Stop a running deployment
+ * @access Private
+ */
+export const stopDeploymentController = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { deploymentId } = req.params;
+        const deployment = await deploymentService.stopDeployment(userId, deploymentId);
+        res.status(200).json({ success: true, message: "Deployment stopped", data: deployment });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @route POST /api/deploy/rollback/:projectId
+ * @desc Rollback to previous deployment for a project
+ * @access Private
+ */
+export const rollbackController = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { projectId } = req.params;
+        const deployment = await deploymentService.rollbackDeployment(userId, projectId);
+        res.status(201).json({ success: true, message: "Rollback started", data: deployment });
     } catch (error) {
         next(error);
     }
