@@ -5,7 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./feature/auth/pages/Login";
 import Register from "./feature/auth/pages/Register";
-import Dashboard from "./feature/dashboard/pages/dashboard";
+import Dashboard from "./feature/dashboard/pages/Dashboard";
 
 export const AppRoutes = () => {
     return (

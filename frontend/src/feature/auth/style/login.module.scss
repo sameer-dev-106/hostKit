@@ -1,86 +1,412 @@
-   @mixin flexBox($justify: center, $align: center, $gap: 0) {
-       display: flex;
-       justify-content: $justify;
-       align-items: $align;
-       gap: $gap;
-   }
+@use './auth-variables' as *;
 
-   main {
-       height: 100vh;
-       @include flexBox(center, center, 0);
-       flex-direction: column;
+// ============================================
+// LOGIN PAGE
+// ============================================
 
+.authPage {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: $bg-deep;
+  font-family: $font;
+}
 
-       .formContainer {
-           width: 400px;
-           background-color: rgba(32, 32, 32, 0.362);
-           display: flex;
-           flex-direction: column;
-           gap: 1rem;
-           padding: 1.5rem 3rem;
-           border-radius: 1rem;
+// ============================================
+// LEFT PANEL — Interactive Animation
+// ============================================
 
-           form {
+.leftPanel {
+  position: relative;
+  width: 50%;
+  height: 100vh; 
 
-               @include flexBox(center, center, 1rem);
-               flex-direction: column;
+  @media (max-width: 1024px) {
+    display: none;
+  }
 
-               .field {
-                   display: flex;
-                   flex-direction: column;
-                   gap: 0.4rem;
-                   width: 100%;
-               }
+  .canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
 
-               //    .password {
-               //        display: flex;
-               //        flex-direction: column;
-               //        gap: 0.4rem;
-               //        width: 100%;
-               //    }
+  .leftOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40px;
+    pointer-events: none;
+    z-index: 2;
+  }
 
-               input {
-                   background-color: transparent;
-                   box-shadow: 1px 1px 2px black;
-                   border-radius: 10px;
-                   border: none;
-                   padding: 0.5rem 0.4rem;
-                   color: white;
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 
-               }
+    .logoIcon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(82, 39, 255, 0.25);
+      border: 1px solid rgba(82, 39, 255, 0.4);
+      @include flex-center;
+      overflow: hidden;
 
+      img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
 
-               button {
-                   width: 100%;
-                   border: none;
-                   padding: 0.5rem 0rem;
-                   background-color: transparent;
-                   background-color: #212528;
-                   box-shadow: 1px 1px 2px black;
-                   border-radius: 10px;
-                   color: white;
-                   transition: all ease-in 0.8s;
-                   cursor: pointer;
+      .logoPlaceholder {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, $primary, $pink);
+        @include flex-center;
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+      }
+    }
 
-                   &:active {
-                       scale: 0.9;
-                   }
-               }
+    .logoText {
+      font-size: 18px;
+      font-weight: 600;
+      color: $text-white;
+      letter-spacing: -0.3px;
+    }
+  }
 
-               .googleButton {
-                   background-color: #3C7EEF;
-                   display: flex;
-                   gap: 1rem;
-                   padding: 0.5rem;
-               }
+  .leftBottom {
+    .tagline {
+      font-family: $font-serif;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: $lavender;
+      margin-bottom: 10px;
 
-               .githubButton {
-                   background-color: #212528;
-                   display: flex;
-                   gap: 1rem;
-                   padding: 0.5rem;
-               }
+      span {
+        color: $pink;
+      }
+    }
 
-           }
-       }
-   }
+    .subTagline {
+      font-size: 13px;
+      color: rgba(177, 158, 239, 0.45);
+      letter-spacing: 0.2px;
+    }
+  }
+
+  // Floating badge
+  .floatingBadge {
+    position: absolute;
+    bottom: 120px;
+    left: 40px;
+    right: 40px;
+    background: rgba(15, 15, 42, 0.7);
+    border: 1px solid rgba(82, 39, 255, 0.2);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(20px);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    .badgeDot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      flex-shrink: 0;
+      animation: pulse 2s infinite;
+    }
+
+    .badgeText {
+      font-size: 12px;
+      color: rgba(177, 158, 239, 0.7);
+      line-height: 1.5;
+
+      strong {
+        color: $lavender;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// ============================================
+// RIGHT PANEL — Auth Form
+// ============================================
+
+.rightPanel {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: $bg-dark;
+  position: relative;
+
+  // Subtle background glow
+  &::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(82, 39, 255, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  // Mobile logo
+  .mobileLogo {
+    display: none;
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    align-items: center;
+    gap: 10px;
+
+    @media (max-width: 1024px) {
+      display: flex;
+    }
+
+    // .mobileLogoIcon {
+    //   width: 32px;
+    //   height: 32px;
+    //   border-radius: 10px;
+    //   background: rgba(82, 39, 255, 0.25);
+    //   border: 1px solid rgba(82, 39, 255, 0.4);
+    //   @include flex-center;
+    //   overflow: hidden;
+
+    //   img {
+    //     width: 18px;
+    //     height: 18px;
+    //     object-fit: contain;
+    //   }
+
+    //   .mobileLogoPlaceholder {
+    //     width: 18px;
+    //     height: 18px;
+    //     border-radius: 4px;
+    //     background: linear-gradient(135deg, $primary, $pink);
+    //   }
+    // }
+
+    span {
+      font-size: 15px;
+      font-weight: 600;
+      color: $text-white;
+    }
+  }
+}
+
+.formWrapper {
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
+}
+
+// Heading
+.heading {
+  margin-bottom: 32px;
+
+  h1 {
+    font-family: $font-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: $text-white;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: $text-muted;
+    margin: 0;
+  }
+}
+
+// OAuth
+.oauthRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+
+  .googleBtn { @include oauth-btn; }
+  .githubBtn { @include oauth-btn; }
+}
+
+// Divider
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  span {
+    font-size: 12px;
+    color: rgba(177, 158, 239, 0.4);
+    white-space: nowrap;
+  }
+}
+
+// Form
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(177, 158, 239, 0.7);
+    letter-spacing: 0.2px;
+  }
+
+  input {
+    @include input-base;
+  }
+
+  .passwordWrapper {
+    position: relative;
+
+    input {
+      padding-right: 44px;
+    }
+
+    .eyeBtn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(177, 158, 239, 0.4);
+      @include flex-center;
+      padding: 4px;
+      transition: $transition;
+
+      &:hover {
+        color: $lavender;
+      }
+    }
+  }
+}
+
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+
+  button {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: rgba(177, 158, 239, 0.5);
+    cursor: pointer;
+    font-family: $font;
+    transition: $transition;
+
+    &:hover {
+      color: $lavender;
+    }
+  }
+}
+
+.submitBtn {
+  @include btn-primary;
+  margin-top: 4px;
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+}
+
+// Footer links
+.footerLink {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(177, 158, 239, 0.5);
+  margin-top: 24px;
+
+  a {
+    color: $lavender;
+    font-weight: 500;
+    text-decoration: none;
+    transition: $transition;
+
+    &:hover {
+      color: $pink;
+    }
+  }
+}
+
+.terms {
+  text-align: center;
+  font-size: 11px;
+  color: $text-faint;
+  margin-top: 16px;
+  line-height: 1.6;
+
+  span {
+    text-decoration: underline;
+    cursor: pointer;
+    transition: $transition;
+
+    &:hover {
+      color: $lavender;
+    }
+  }
+}
+
+// ============================================
+// ANIMATIONS
+// ============================================
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px #10b981; }
+  50% { opacity: 0.6; box-shadow: 0 0 4px #10b981; }
+}
