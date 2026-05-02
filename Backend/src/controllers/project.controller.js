@@ -5,7 +5,7 @@ import * as projectService from "../services/project.service.js";
  * @desc Create a new project
  * @access Private
  */
-export const createProject = async (req, res) => {
+export const createProject = async (req, res, next) => {
     try {
         const userId = req.user.id;
 
@@ -26,7 +26,7 @@ export const createProject = async (req, res) => {
  * @desc Get all projects for the authenticated user
  * @access Private
  */
-export const getUserProjects = async (req, res) => {
+export const getUserProjects = async (req, res, next) => {
     try {
         const userId = req.user.id;
 
@@ -47,7 +47,7 @@ export const getUserProjects = async (req, res) => {
  * @desc Get a single project by ID
  * @access Private
  */
-export const getProjectById = async (req, res) => {
+export const getProjectById = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const projectId = req.params.id;
@@ -72,7 +72,7 @@ export const getProjectById = async (req, res) => {
  * @desc Delete a project by ID
  * @access Private
  */
-export const deleteProject = async (req, res) => {
+export const deleteProject = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const projectId = req.params.id;

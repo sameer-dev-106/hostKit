@@ -6,7 +6,10 @@ import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import mongoose from "mongoose";
-import { config } from "dotenv";
+
+import dotenv from "dotenv";
+dotenv.config();
+import { config } from "../config/config.js";
 
 import Deployment from "../models/deployment.model.js";
 import Project from "../models/project.model.js";
@@ -18,12 +21,45 @@ const git = simpleGit();
 await mongoose.connect(config.MONGO_URI);
 console.log("✅ Worker Mongo connected");
 
-// Redis connection
+// Redis connection (worker ke liye)
 const connection = new IORedis({
     host: "redis",
     port: 6379,
     maxRetriesPerRequest: null,
 });
+
+// Separate Redis client for publishing logs
+const publisher = new IORedis({
+    host: "redis",
+    port: 6379,
+    maxRetriesPerRequest: null,
+});
+
+// Helper: Available port dhundho
+const findAvailablePort = (min, max, usedPorts) => {
+    for (let port = min; port <= max; port++) {
+        if (!usedPorts.includes(port)) return port;
+    }
+    throw new Error("No available ports in range");
+};
+
+// Helper: Log emit karo (DB + Redis publish)
+const emitLog = async (deploymentId, message) => {
+    const log = `[${new Date().toISOString()}] ${message}`;
+
+    // DB mein save karo
+    await Deployment.findByIdAndUpdate(deploymentId, {
+        $push: { logs: log }
+    });
+
+    // Redis se frontend ko real-time bhejo
+    await publisher.publish("deployment-logs", JSON.stringify({
+        deploymentId: deploymentId.toString(),
+        log
+    }));
+
+    console.log(log);
+};
 
 console.log("Worker started...");
 
@@ -31,102 +67,118 @@ new Worker(
     "deployment-queue",
     async (job) => {
         const { deploymentId } = job.data;
-
         console.log("Job received:", deploymentId);
 
         try {
-            // 🔹 Fetch DB
+            // Fetch Deployment + Project details
             const deployment = await Deployment.findById(deploymentId);
             if (!deployment) throw new Error("Deployment not found");
 
             const project = await Project.findById(deployment.projectId);
             if (!project) throw new Error("Project not found");
 
-            console.log("Deployment + Project fetched");
+            await emitLog(deploymentId, "Deployment started");
 
+            // Folder Setup
             const projectPath = path.join("deployments", deploymentId.toString());
 
-            // 🔹 Clean folder
             if (fs.existsSync(projectPath)) {
                 fs.rmSync(projectPath, { recursive: true, force: true });
             }
-
             fs.mkdirSync(projectPath, { recursive: true });
 
-            // 🔹 Clone repo
-            console.log("Cloning repo...");
+            // Clone Repo
+            await emitLog(deploymentId, `Cloning repo: ${project.repoUrl}`);
             await git.clone(project.repoUrl, projectPath);
 
             const projectGit = simpleGit(projectPath);
             await projectGit.checkout(project.branch || "main");
+            await emitLog(deploymentId, `Repo cloned — branch: ${project.branch || "main"}`);
 
-            console.log("Repo cloned");
-
-            // DETECT PROJECT TYPE
+            // Detect Project Type
             const isNode = fs.existsSync(path.join(projectPath, "package.json"));
+            if (!isNode) throw new Error("Unsupported project type — package.json not found");
 
-            if (!isNode) {
-                throw new Error("Unsupported project type");
-            }
+            await emitLog(deploymentId, "Detected Node.js project");
 
-            console.log("Detected Node project");
-
-            // AUTO DOCKERFILE
+            // Auto Dockerfile
             const dockerfilePath = path.join(projectPath, "Dockerfile");
-
             if (!fs.existsSync(dockerfilePath)) {
-                console.log("⚠️ No Dockerfile → creating one...");
+                await emitLog(deploymentId, "⚠️ No Dockerfile found — generating one automatically");
 
                 fs.writeFileSync(
                     dockerfilePath,
-                    `
-                        FROM node:20
-                        WORKDIR /app
-                        COPY package*.json ./
-                        RUN npm install
-                        COPY . .
-                        EXPOSE 3000
-                        CMD ["npm", "start"]
-                    `
+                    `FROM node:20-alpine
+                    WORKDIR /app
+                    COPY package*.json ./
+                    RUN npm install --production
+                    COPY . .
+                    EXPOSE 3000
+                    CMD ["npm", "start"]`
                 );
+            } else {
+                await emitLog(deploymentId, "✅ Dockerfile found");
             }
 
-            // Update status
-            deployment.status = "building";
-            deployment.logs.push("Cloned repo");
-            await deployment.save();
+            // Update Status to Building
+            await Deployment.findByIdAndUpdate(deploymentId, { status: "building" });
+            await emitLog(deploymentId, "🔨 Building Docker image...");
 
-            // BUILD DOCKER IMAGE
-            console.log("🐳 Building Docker image...");
-            await execAsync(`docker build -t project-${deploymentId} .`, {
-                cwd: projectPath,
-            });
-
-            // RUN CONTAINER
-            const port = 3000 + Math.floor(Math.random() * 1000);
-
-            console.log("Running container...");
-            await execAsync(
-                `docker run -d -p ${port}:3000 project-${deploymentId}`
+            // Build Docker Image
+            const { stdout: buildOut, stderr: buildErr } = await execAsync(
+                `docker build -t project-${deploymentId} .`,
+                { cwd: projectPath }
             );
 
-            // Save success
-            deployment.status = "running";
-            deployment.logs.push(`Deployed on port ${port}`);
-            deployment.url = `http://localhost:${port}`;
+            if (buildErr) await emitLog(deploymentId, `⚠️ Build warnings: ${buildErr}`);
+            await emitLog(deploymentId, "✅ Docker image built successfully");
 
-            await deployment.save();
+            // Port Selection 
+            const usedPorts = await Deployment.distinct("port", { status: "running" });
+            const port = findAvailablePort(4000, 5000, usedPorts);
+            await emitLog(deploymentId, `🔌 Assigned port: ${port}`);
 
-            console.log("DEPLOY DONE:", deployment.url);
+            // Env Vars
+            const envEntries = Object.entries(project.envs?.toJSON?.() || project.envs || {});
+            const envFlags = envEntries
+                .map(([k, v]) => `-e ${k}="${v}"`)
+                .join(" ");
+
+            if (envEntries.length > 0) {
+                await emitLog(deploymentId, `🔐 Injecting ${envEntries.length} environment variable(s)`);
+            }
+
+            // Run Container 
+            await emitLog(deploymentId, "🐳 Starting container...");
+
+            const containerName = `container-${deploymentId}`;
+            await execAsync(
+                `docker run -d -p ${port}:3000 ${envFlags} --name ${containerName} project-${deploymentId}`
+            );
+
+            // Save Success
+            const deploymentUrl = `http://localhost:${port}`;
+
+            await Deployment.findByIdAndUpdate(deploymentId, {
+                status: "running",
+                containerId: containerName,
+                port,
+                url: deploymentUrl,
+            });
+
+            await emitLog(deploymentId, `✅ Deployment successful!`);
+            await emitLog(deploymentId, `🌐 Live at: ${deploymentUrl}`);
+
+            console.log("DEPLOY DONE:", deploymentUrl);
+
         } catch (err) {
             console.log("DEPLOY FAILED:", err.message);
 
-            const deployment = await Deployment.findById(deploymentId);
-            if (deployment) {
-                deployment.status = "failed";
-                deployment.logs.push(err.message);
-                await deployment.save();
-            }
+            await emitLog(deploymentId, `❌ Deployment failed: ${err.message}`);
+
+            await Deployment.findByIdAndUpdate(deploymentId, {
+                status: "failed",
+            });
         }
     },
     { connection }
