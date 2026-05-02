@@ -25,19 +25,6 @@ deploymentRoutes.use(authUser);
  */
 deploymentRoutes.post("/:projectId", deploymentController.createDeploymentController);
 
-
-/**
- * @route GET /api/deploy/:id
- * @desc Get a single deployment by ID
- * @access Private
- * @param {string} id - The ID of the deployment to fetch
- * @returns {Promise<Object>} - The deployment object with the specified ID
- * @throws {Error} - Throws an error if the deployment is not found or unauthorized
- * 
- * Note: This route will return the details of a specific deployment, including its status, logs, and associated project information.
- */
-deploymentRoutes.get("/:id", deploymentController.getDeployment);
-
 /**
  * @route GET /api/deploy/project/:projectId
  * @desc Get all deployments for a specific project
@@ -70,5 +57,17 @@ deploymentRoutes.post("/stop/:deploymentId", deploymentController.stopDeployment
  * @returns {Promise<Object>} - The new deployment object created from the rollback
  */
 deploymentRoutes.post("/rollback/:projectId", deploymentController.rollbackController);
+
+/**
+ * @route GET /api/deploy/:id
+ * @desc Get a single deployment by ID
+ * @access Private
+ * @param {string} id - The ID of the deployment to fetch
+ * @returns {Promise<Object>} - The deployment object with the specified ID
+ * @throws {Error} - Throws an error if the deployment is not found or unauthorized
+ * 
+ * Note: This route will return the details of a specific deployment, including its status, logs, and associated project information.
+ */
+deploymentRoutes.get("/:id", deploymentController.getDeployment);
 
 export default deploymentRoutes;
