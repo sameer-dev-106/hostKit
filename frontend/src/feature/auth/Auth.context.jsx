@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect } from "react";
 import { getMeApi } from "./services/auth.api";
-export const AuthContext = createContext();
+
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
@@ -28,3 +29,5 @@ export const AuthProvider = ({ children }) => {
         <AuthContext.Provider value={{ user, setUser, loading, setLoading,authLoading,setAuthLoading }}>{children}</AuthContext.Provider>
     )
 }
+
+export default AuthContext;
