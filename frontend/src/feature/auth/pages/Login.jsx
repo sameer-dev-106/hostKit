@@ -37,10 +37,16 @@ export default function Login() {
 
   const handleGoogleLogin = () => {
     window.location.href = 'http://localhost:3000/api/auth/google'
+
+    // AWS deployment time
+    // window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
   }
 
   const handleGithubLogin = () => {
     window.location.href = 'http://localhost:3000/api/auth/github'
+
+    // AWS deployment time
+    // window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/github`;
   }
 
   return (
