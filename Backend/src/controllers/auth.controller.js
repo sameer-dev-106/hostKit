@@ -12,7 +12,7 @@ import redis from "../config/redis.js";
 export const googleCallback = async (req, res) => {
     try {
         if (!req.user) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         const { id, displayName, emails, photos } = req.user;
@@ -21,7 +21,7 @@ export const googleCallback = async (req, res) => {
         const profilePic = photos?.[0]?.value;
 
         if (!email) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         let user = await userModel.findOne({ email });
@@ -48,11 +48,11 @@ export const googleCallback = async (req, res) => {
             sameSite: "lax"
         });
 
-        return res.redirect("http://localhost:5173/");
+        return res.redirect("http://localhost/");
 
     } catch (err) {
         console.error("Google Auth Error:", err);
-        return res.redirect("http://localhost:5173/login");
+        return res.redirect("http://localhost/login");
     }
 }
 
@@ -64,7 +64,7 @@ export const googleCallback = async (req, res) => {
 export const githubCallback = async (req, res) => {
     try {
         if (!req.user) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         const { id, username, emails, photos } = req.user;
@@ -73,7 +73,7 @@ export const githubCallback = async (req, res) => {
         const profilePic = photos?.[0]?.value;
 
         if (!email) {
-            return res.redirect("http://localhost:5173/login?error=no_email")
+            return res.redirect("http://localhost/login?error=no_email")
         }
 
         let user = await userModel.findOne({ email });
@@ -100,11 +100,11 @@ export const githubCallback = async (req, res) => {
             sameSite: "lax"
         });
 
-        return res.redirect("http://localhost:5173/");
+        return res.redirect("http://localhost/");
 
     } catch (err) {
         console.error("GitHub Auth Error:", err);
-        return res.redirect("http://localhost:5173/login");
+        return res.redirect("http://localhost/login");
     }
 }
 

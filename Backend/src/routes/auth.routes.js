@@ -40,7 +40,7 @@ authRouter.get("/google",
 authRouter.get("/google/callback",
     passport.authenticate("google", {
         session: false,
-        failureRedirect: config.NODE_ENV == "development" ? "http://localhost:5173/login" : "/login"
+        failureRedirect: config.NODE_ENV == "development" ? "http://localhost/login" : "/login"
     }),
     googleCallback,
 );
@@ -60,7 +60,7 @@ authRouter.get("/github",
 authRouter.get("/github/callback",
     passport.authenticate("github", {
         session: false,
-        failureRedirect: config.NODE_ENV == "development" ? "http://localhost:5173/login" : "/login"
+        failureRedirect: config.NODE_ENV == "development" ? "http://localhost/login" : "/login"
     }),
     githubCallback
 );
