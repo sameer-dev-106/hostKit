@@ -17,10 +17,8 @@ import Project from "../models/project.model.js";
 const execAsync = promisify(exec);
 const git = simpleGit();
 
-import { analyzeError } from "../ai/ai.service.js";
+import { analyzeError, applyAiFix } from "../services/ai.service.js";
 import DeploymentLog from "../models/deploymentLog.model.js";
-
-
 
 const detectEnvVariables = (projectPath) => {
     const envSet = new Set();
@@ -110,8 +108,12 @@ const publisher = new IORedis({
     maxRetriesPerRequest: null,
 });
 
-// Helper: Available port dhundho
-const findAvailablePort = (min, max, usedPorts) => {
+// Helper: Available port find karo (DB + OS check)
+const findAvailablePort = async (min, max) => {
+    const usedPorts = await Deployment.distinct("port", {
+        status: { $in: ["running", "building"] }
+    });
+
     for (let port = min; port <= max; port++) {
         if (!usedPorts.includes(port)) return port;
     }
@@ -128,7 +130,7 @@ const emitLog = async (deploymentId, message) => {
         message: log
     });
 
-    // Redis se frontend ko real-time bhejo
+    // Redis se publish karo (frontend subscribe karega)
     await publisher.publish("deployment-logs", JSON.stringify({
         deploymentId: deploymentId.toString(),
         log
@@ -178,18 +180,18 @@ new Worker(
             await emitLog(deploymentId, `📦 Detected project type: ${projectType}`);
 
             const detectedEnvs = detectEnvVariables(projectPath);
-            if(detectedEnvs.length > 0){
+            if (detectedEnvs.length > 0) {
                 await emitLog(deploymentId, `Detected environment variables: ${detectedEnvs.join(", ")}`);
-            }else{
+            } else {
                 await emitLog(deploymentId, `No environment variables detected in code`);
             }
 
             const providedEnvs = Object.keys(project.envs || {});
             missingEnvs = detectedEnvs.filter(env => !providedEnvs.includes(env));
-            
-            if(missingEnvs.length > 0){
+
+            if (missingEnvs.length > 0) {
                 await emitLog(deploymentId, `⚠️ Missing environment variables: ${missingEnvs.join(", ")}`);
-            }else{
+            } else {
                 await emitLog(deploymentId, `All detected environment variables are provided`);
             }
 
@@ -198,110 +200,101 @@ new Worker(
                 throw new Error("Unsupported project type");
             }
 
-            
-
             // Auto Dockerfile
             const dockerfilePath = path.join(projectPath, "Dockerfile");
             if (!fs.existsSync(dockerfilePath)) {
 
                 // STATIC PROJECT
                 if (projectType === "static") {
-            
+
                     const hasDist = fs.existsSync(path.join(projectPath, "dist"));
-const hasBuild = fs.existsSync(path.join(projectPath, "build"));
-const hasIndexHtml = fs.existsSync(path.join(projectPath, "index.html"));
+                    const hasBuild = fs.existsSync(path.join(projectPath, "build"));
+                    const hasIndexHtml = fs.existsSync(path.join(projectPath, "index.html"));
 
-await emitLog(deploymentId, "Static project detected");
+                    await emitLog(deploymentId, "Static project detected");
 
-if (hasDist) {
-    await emitLog(deploymentId, "Using dist folder");
-    const buildFolder = fs.existsSync(path.join(projectPath, "dist"))
-  ? "dist"
-  : "build";
+                    if (hasDist) {
+                        await emitLog(deploymentId, "Using dist folder");
+                        const buildFolder = fs.existsSync(path.join(projectPath, "dist"))
+                            ? "dist"
+                            : "build";
 
-    fs.writeFileSync(dockerfilePath, `
-        FROM node:20-alpine AS builder
-        WORKDIR /app
-        
-        ARG VITE_API_URL
-        ENV VITE_API_URL=$VITE_API_URL
-        
-        COPY package*.json ./
-        RUN npm install
-        COPY . .
-        RUN npm run build
-        
-        FROM nginx:alpine
-        COPY --from=builder /app/${buildFolder} /usr/share/nginx/html
-        EXPOSE 80
-        CMD ["nginx", "-g", "daemon off;"]
-        `);
+                        fs.writeFileSync(dockerfilePath, `
+FROM node:20-alpine AS builder
+WORKDIR /app
 
-} else if (hasBuild) {
-    await emitLog(deploymentId, "Using build folder");
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
-    fs.writeFileSync(dockerfilePath, `
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/${buildFolder} /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]`);
+
+                    } else if (hasBuild) {
+                        await emitLog(deploymentId, "Using build folder");
+
+                        fs.writeFileSync(dockerfilePath, `
 FROM nginx:alpine
 COPY build /usr/share/nginx/html
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-    `);
+CMD ["nginx", "-g", "daemon off;"]`);
 
-} else if (hasIndexHtml) {
-    await emitLog(deploymentId, "Using root index.html");
+                    } else if (hasIndexHtml) {
+                        await emitLog(deploymentId, "Using root index.html");
 
-    fs.writeFileSync(dockerfilePath, `
+                        fs.writeFileSync(dockerfilePath, `
 FROM nginx:alpine
 COPY . /usr/share/nginx/html
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-    `);
+CMD ["nginx", "-g", "daemon off;"]`);
+                    } else {
+                        throw new Error("No build output found (dist/build/index.html missing)");
+                    }
 
-} else {
-    throw new Error("No build output found (dist/build/index.html missing)");
-}
-            
-                // REACT / VITE PROJECT
+                    // REACT / VITE PROJECT
                 } else if (
                     projectType === "react" ||
                     projectType === "vite" ||
                     projectType === "vite-react"
                 ) {
-            
+
                     await emitLog(deploymentId, "React/Vite project detected, building project");
-            
+
                     fs.writeFileSync(dockerfilePath, `
-            FROM node:20-alpine AS builder
-            WORKDIR /app
+FROM node:20-alpine AS builder
+WORKDIR /app
 
-            ARG VITE_API_URL
-            ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
-            COPY package*.json ./
-            RUN npm install
-            COPY . .
-            RUN npm run build
-            
-            FROM nginx:alpine
-            COPY --from=builder /app/dist /usr/share/nginx/html
-            EXPOSE 80
-            CMD ["nginx", "-g", "daemon off;"]
-                    `);
-            
-                // NODE PROJECT
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]`);
+                    // NODE PROJECT
                 } else {
-            
+
                     await emitLog(deploymentId, "Generating Node Dockerfile");
-            
+
                     fs.writeFileSync(dockerfilePath, `
-            FROM node:20-alpine
-            WORKDIR /app
-            COPY package*.json ./
-            RUN npm install --production
-            COPY . .
-            EXPOSE 3000
-            CMD ["npm", "start"]
-                    `);
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]`);
                 }
             }
 
@@ -309,27 +302,24 @@ CMD ["nginx", "-g", "daemon off;"]
             await Deployment.findByIdAndUpdate(deploymentId, { status: "building" });
             await emitLog(deploymentId, "🔨 Building Docker image...");
 
-
-
-
             // Build Docker Image
             const imageName = `project-${deploymentId}-${Date.now()}`;
             const envEntries = Object.entries(project.envs?.toJSON?.() || project.envs || {});
 
-        // build time
-        const buildArgs = envEntries
-        .map(([k, v]) => `--build-arg ${k}=${v}`)
-        .join(" ");
+            // build time
+            const buildArgs = envEntries
+                .map(([k, v]) => `--build-arg ${k}=${v}`)
+                .join(" ");
 
-        // runtime
-        const envFlags = envEntries
-        .map(([k, v]) => `-e ${k}="${v}"`)
-        .join(" ");
+            // runtime
+            const envFlags = envEntries
+                .map(([k, v]) => `-e ${k}="${v}"`)
+                .join(" ");
             const { stdout: buildOut, stderr: buildErr } = await execAsync(
                 `docker build ${buildArgs} -t ${imageName} .`,
-                { 
+                {
                     cwd: projectPath,
-                    timeout: 5 * 60 * 1000 
+                    timeout: 5 * 60 * 1000
                 }
             );
 
@@ -337,10 +327,7 @@ CMD ["nginx", "-g", "daemon off;"]
             await emitLog(deploymentId, "✅ Docker image built successfully");
 
             // Port Selection 
-            const usedPorts = await Deployment.distinct("port", { status: "running" });
-            // Port Selection (random)
-            
-            const port = findAvailablePort(4000, 5000, usedPorts);
+            const port = await findAvailablePort(4000, 9000);
             await emitLog(deploymentId, `🔌 Assigned port: ${port}`);
 
             if (envEntries.length > 0) {
@@ -351,9 +338,9 @@ CMD ["nginx", "-g", "daemon off;"]
             const containerName = `container-${deploymentId}`;
             const containerPort = projectType === "static" ? 80 : 3000;
 
-             // Cleanup old container if exists (same deploymentId se pehle wala)
-            await execAsync(`docker rm -f ${containerName}`).catch(() => {}); 
-            
+            // Cleanup old container if exists (same deploymentId se pehle wala)
+            await execAsync(`docker rm -f ${containerName}`).catch(() => { });
+
             // Run new container
             await emitLog(deploymentId, "🐳 Starting container...");
 
@@ -366,11 +353,11 @@ CMD ["nginx", "-g", "daemon off;"]
                 ${envFlags} \
                 --name ${containerName} ${imageName}`,
                 {
-                    timeout: 60 * 1000 
+                    timeout: 60 * 1000
                 }
             );
             // Save Success
-            const deploymentUrl = `http://localhost:${port}`;
+            const deploymentUrl = `http://${process.env.SERVER_IP || 'localhost'}:${port}`;
 
             await Deployment.findByIdAndUpdate(deploymentId, {
                 status: "running",
@@ -384,19 +371,16 @@ CMD ["nginx", "-g", "daemon off;"]
 
             console.log("DEPLOY DONE:", deploymentUrl);
 
-            
-
         }
-         catch (err) {
+        catch (err) {
             console.log("DEPLOY FAILED:", err.message);
-
             await emitLog(deploymentId, `❌ Deployment failed: ${err.message}`);
 
-            try{
+            try {
                 //fetch logs from  deployment logs collection
-                const logsData = await DeploymentLog.find({deploymentId})
-                .sort({ createdAt: -1 })
+                const logsData = await DeploymentLog.find({ deploymentId }).sort({ createdAt: -1 });
                 const logs = logsData.slice(0, 50).map(l => l.message);
+
                 if (!project) {
                     const deployment = await Deployment.findById(deploymentId);
                     if (deployment) {
@@ -404,18 +388,57 @@ CMD ["nginx", "-g", "daemon off;"]
                     }
                 }
 
-                //Ai Analysis
+                // AI Analysis
                 const aiResult = await analyzeError({
                     logs,
-                    framework: project.framework || "Node.js",
+                    framework: project?.framework || "Node.js",
                     missingEnvs,
-                })
-                
+                });
+
+                // Emit AI analysis to logs for frontend display
+                await emitLog(deploymentId, `🤖 AI Error: ${aiResult.errorType}`);
+                await emitLog(deploymentId, `💡 Reason: ${aiResult.explanation}`);
+                await emitLog(deploymentId, `🔧 Fix: ${aiResult.fix}`);
+
+                // AUTO-FIX BLOCK
+                const deployment = await Deployment.findById(deploymentId);
+                const retryCount = deployment?.retryCount || 0;
+
+                if (aiResult.severity !== 'low' && retryCount < 2) {
+                    await emitLog(deploymentId, `🤖 AI attempting auto-fix (attempt ${retryCount + 1}/2)...`);
+
+                    const projectPath = path.join("deployments", deploymentId.toString());
+                    const fixed = await applyAiFix(projectPath, aiResult);
+
+                    if (fixed) {
+                        await emitLog(deploymentId, `✅ Auto-fix applied — redeploying...`);
+
+                        // retryCount badhao
+                        await Deployment.findByIdAndUpdate(deploymentId, {
+                            status: "pending",
+                            $inc: { retryCount: 1 }
+                        });
+
+                        // Naya job queue karo
+                        const { deploymentQueue } = await import("../queue/deployment.queue.js");
+                        await deploymentQueue.add("deploy-job", {
+                            deploymentId: deployment._id,
+                            isRetry: true
+                        });
+
+                        return; // current job yahan khatam
+                    } else {
+                        await emitLog(deploymentId, `⚠️ Auto-fix could not be applied`);
+                    }
+                } else if (retryCount >= 2) {
+                    await emitLog(deploymentId, `❌ Max auto-fix attempts reached`);
+                }
+                // END AUTO-FIX BLOCK
 
                 // Save AI analysis to deployment record
-                await Deployment.findByIdAndUpdate(deploymentId,{
+                await Deployment.findByIdAndUpdate(deploymentId, {
                     status: "failed",
-                    aiAnalysis:{
+                    aiAnalysis: {
                         error: aiResult.errorType,
                         explanation: aiResult.explanation,
                         fix: aiResult.fix,
@@ -423,17 +446,10 @@ CMD ["nginx", "-g", "daemon off;"]
                     }
                 })
 
-                //Emit AI analysis to logs for frontend display
-                await emitLog(deploymentId, `Ai Error:${aiResult.errorType}`);
-                await emitLog(deploymentId, `Reason: ${aiResult.explanation}`);
-                await emitLog(deploymentId, `Fix Suggestion:${aiResult.fix}`);
-            } catch(aiErr){
+            } catch (aiErr) {
                 console.log("AI analysis failed:", aiErr.message);
-
                 await emitLog(deploymentId, `⚠️ AI analysis failed: ${aiErr.message}`);
-                 await Deployment.findByIdAndUpdate(deploymentId,{
-                    status: "failed",
-                 })
+                await Deployment.findByIdAndUpdate(deploymentId, { status: "failed" });
             }
         }
     },
