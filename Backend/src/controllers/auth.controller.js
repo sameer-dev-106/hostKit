@@ -2,6 +2,7 @@ import userModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../services/mail.service.js";
 import { config } from "../config/config.js";
+import redis from "../config/redis.js";
 
 /**
  * @desc Handle Google authentication callback
@@ -11,7 +12,7 @@ import { config } from "../config/config.js";
 export const googleCallback = async (req, res) => {
     try {
         if (!req.user) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         const { id, displayName, emails, photos } = req.user;
@@ -20,7 +21,7 @@ export const googleCallback = async (req, res) => {
         const profilePic = photos?.[0]?.value;
 
         if (!email) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         let user = await userModel.findOne({ email });
@@ -47,11 +48,11 @@ export const googleCallback = async (req, res) => {
             sameSite: "lax"
         });
 
-        return res.redirect("http://localhost:5173/");
+        return res.redirect("http://localhost/");
 
     } catch (err) {
         console.error("Google Auth Error:", err);
-        return res.redirect("http://localhost:5173/login");
+        return res.redirect("http://localhost/login");
     }
 }
 
@@ -63,7 +64,7 @@ export const googleCallback = async (req, res) => {
 export const githubCallback = async (req, res) => {
     try {
         if (!req.user) {
-            return res.redirect("http://localhost:5173/login");
+            return res.redirect("http://localhost/login");
         }
 
         const { id, username, emails, photos } = req.user;
@@ -72,7 +73,7 @@ export const githubCallback = async (req, res) => {
         const profilePic = photos?.[0]?.value;
 
         if (!email) {
-            return res.redirect("http://localhost:5173/login?error=no_email")
+            return res.redirect("http://localhost/login?error=no_email")
         }
 
         let user = await userModel.findOne({ email });
@@ -99,11 +100,11 @@ export const githubCallback = async (req, res) => {
             sameSite: "lax"
         });
 
-        return res.redirect("http://localhost:5173/");
+        return res.redirect("http://localhost/");
 
     } catch (err) {
         console.error("GitHub Auth Error:", err);
-        return res.redirect("http://localhost:5173/login");
+        return res.redirect("http://localhost/login");
     }
 }
 
@@ -300,3 +301,40 @@ export async function verifyEmail(req, res) {
         })
     }
 }
+
+/**
+ * @desc Logout user by blacklisting the token and clearing the cookie
+ * @route POST /api/auth/logout
+ * @access Private
+ */
+export const logout = async (req, res) => {
+    try {
+        const token = req.cookies.token;
+
+        if (!token) {
+            return res.status(400).json({
+                message: "Already logged out",
+            });
+        }
+
+        // ⏱ expiry calculate
+        const decoded = jwt.decode(token);
+        const expiryTime = decoded.exp - Math.floor(Date.now() / 1000);
+
+        if (expiryTime > 0) {
+            await redis.set(`bl_${token}`, "true", "EX", expiryTime);
+        }
+
+        // 🍪 cookie remove
+        res.clearCookie("token");
+
+        return res.status(200).json({
+            message: "Logged out successfully",
+            success: true,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            message: "Logout failed",
+        });
+    }
+};

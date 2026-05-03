@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }))
@@ -40,7 +40,7 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: config.GITHUB_CLIENT_ID,
     clientSecret: config.GITHUB_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/api/auth/github/callback"
+    callbackURL: process.env.GITHUB_CALLBACK_URL
 }, (accessToken, refreshToken, profile, done) => {
     return done(null, profile);
 }));
