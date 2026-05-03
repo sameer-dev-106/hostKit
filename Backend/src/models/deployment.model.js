@@ -36,6 +36,10 @@ const deploymentSchema = new mongoose.Schema(
             explanation: String,
             fix: String,
             severity: String
+        },
+        retryCount: {
+            type: Number,
+            default: 0
         }
     },
     { timestamps: true }
