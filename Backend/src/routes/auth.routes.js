@@ -2,7 +2,7 @@ import { Router } from "express";
 import passport from "passport";
 
 import { registerValidator, loginValidator } from "../validation/auth.validator.js";
-import { register, login, getMe, verifyEmail, googleCallback, githubCallback } from "../controllers/auth.controller.js";
+import { register, login, getMe, verifyEmail, googleCallback, githubCallback, logout } from "../controllers/auth.controller.js";
 import { authUser } from "../middlewares/auth.middleware.js";
 import { config } from "../config/config.js";
 
@@ -78,6 +78,13 @@ authRouter.get('/me', authUser, getMe);
  * @access Public
  * @query { token }
  */
-authRouter.get("/verify-email", verifyEmail)
+authRouter.get("/verify-email", verifyEmail);
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Logout user by blacklisting the token
+ * @access Private
+ */
+authRouter.post("/logout", authUser, logout);
 
 export default authRouter;
