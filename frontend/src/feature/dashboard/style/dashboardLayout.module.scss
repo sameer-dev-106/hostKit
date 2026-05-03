@@ -1,0 +1,403 @@
+// Variables
+$primary-color: #6b7adb;
+$surface-color: #16213e;
+$background-color: #1a1a2e;
+$text-primary: #ffffff;
+$text-secondary: #b0b0b0;
+$border-color: #0f3460;
+
+// Mixins
+@mixin flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+@mixin transition-all {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@mixin flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+// Dashboard Layout
+.layoutContainer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    min-height: 100vh;
+    background: $background-color;
+
+    @media (max-width: 1024px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.layoutContent {
+    padding: 2rem;
+    overflow-y: auto;
+    background: $background-color;
+
+    @media (max-width: 1200px) {
+        padding: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        padding: 1rem;
+    }
+
+    @media (max-width: 480px) {
+        padding: 0.75rem;
+    }
+}
+
+// Header Section with Breadcrumb
+.breadcrumbNav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+
+    @media (max-width: 768px) {
+        margin-bottom: 1.5rem;
+    }
+
+    .breadcrumbItem {
+        color: $text-secondary;
+        cursor: pointer;
+        @include transition-all;
+
+        &:hover {
+            color: $primary-color;
+        }
+
+        &.active {
+            color: $text-primary;
+            font-weight: 600;
+        }
+
+        &::after {
+            content: '›';
+            margin-left: 0.75rem;
+            color: $text-secondary;
+        }
+
+        &:last-child::after {
+            content: '';
+            margin-left: 0;
+        }
+    }
+}
+
+// Welcome Header
+.welcomeHeader {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(107, 122, 219, 0.2);
+
+    @media (max-width: 768px) {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+    }
+
+    .greeting {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        color: $text-primary;
+
+        @media (max-width: 1024px) {
+            font-size: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            font-size: 1.75rem;
+        }
+
+        .icon {
+            margin-right: 0.5rem;
+            font-size: 2.8rem;
+        }
+    }
+
+    .subtitle {
+        font-size: 1rem;
+        color: $text-secondary;
+        margin: 0;
+    }
+}
+
+// Tab Navigation (for future use)
+.tabNavigation {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid $border-color;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: rgba(107, 122, 219, 0.1);
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(107, 122, 219, 0.3);
+        border-radius: 2px;
+    }
+
+    .tabItem {
+        padding: 1rem 0;
+        border: none;
+        background: none;
+        color: $text-secondary;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 500;
+        position: relative;
+        white-space: nowrap;
+        @include transition-all;
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: $primary-color;
+            @include transition-all;
+        }
+
+        &:hover {
+            color: $text-primary;
+        }
+
+        &.active {
+            color: $text-primary;
+
+            &::after {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            padding: 0.75rem 0;
+        }
+    }
+}
+
+// Separator
+.separator {
+    height: 1px;
+    background: rgba(107, 122, 219, 0.2);
+    margin: 2rem 0;
+
+    @media (max-width: 768px) {
+        margin: 1.5rem 0;
+    }
+}
+
+// Help Text
+.helpText {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(107, 122, 219, 0.08);
+    border-left: 3px solid $primary-color;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+    color: $text-secondary;
+    font-size: 0.9rem;
+
+    .helpIcon {
+        flex-shrink: 0;
+        font-size: 1.2rem;
+        color: $primary-color;
+    }
+
+    .helpContent {
+        flex: 1;
+    }
+}
+
+// Quick Actions Bar
+.quickActionsBar {
+    @include flex-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+    }
+
+    .leftActions,
+    .rightActions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+
+        @media (max-width: 768px) {
+            width: 100%;
+
+            button {
+                flex: 1;
+            }
+        }
+    }
+}
+
+// Search Filter
+.searchBox {
+    display: flex;
+    align-items: center;
+    background: $surface-color;
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: $text-primary;
+    @include transition-all;
+
+    &:focus-within {
+        border-color: $primary-color;
+        box-shadow: 0 0 0 3px rgba(107, 122, 219, 0.1);
+    }
+
+    input {
+        background: none;
+        border: none;
+        color: $text-primary;
+        font-size: 0.95rem;
+        width: 100%;
+        outline: none;
+
+        &::placeholder {
+            color: $text-secondary;
+        }
+    }
+
+    .searchIcon {
+        color: $text-secondary;
+        margin-right: 0.75rem;
+    }
+
+    @media (max-width: 768px) {
+        width: 100%;
+    }
+}
+
+// Floating Action Button (FAB)
+.fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, $primary-color, lighten($primary-color, 10%));
+    color: white;
+    border: none;
+    cursor: pointer;
+    @include flex-center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(107, 122, 219, 0.4);
+    @include transition-all;
+    z-index: 100;
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(107, 122, 219, 0.5);
+    }
+
+    &:active {
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+    }
+
+    @media (max-width: 480px) {
+        bottom: 1rem;
+        right: 1rem;
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
+}
+
+// Tooltip
+.tooltip {
+    position: relative;
+
+    &:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: $text-primary;
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        margin-bottom: 0.5rem;
+        z-index: 1000;
+    }
+}
+
+// Responsive Adjustments
+@media (max-width: 1024px) {
+    .layoutContent {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .layoutContent {
+        padding: 1rem;
+    }
+
+    .welcomeHeader {
+        margin-bottom: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .layoutContent {
+        padding: 0.75rem;
+    }
+
+    .welcomeHeader {
+        .greeting {
+            font-size: 1.5rem;
+
+            .icon {
+                font-size: 1.75rem;
+            }
+        }
+    }
+}
+
+// Print Styles
+@media print {
+    .fab,
+    .quickActionsBar {
+        display: none;
+    }
+}

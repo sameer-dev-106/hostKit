@@ -19,6 +19,7 @@ export const AppRoutes = () => {
                     <ProtectedRoute>
                         <Dashboard />
                     </ProtectedRoute>} />
+                
             </Routes>
         </BrowserRouter>
     )
