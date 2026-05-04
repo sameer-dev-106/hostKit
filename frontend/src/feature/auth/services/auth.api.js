@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-    baseURL: "http://localhost:3000/api/auth",
+    baseURL: "/api/auth",
     withCredentials: true,
 });
 
@@ -29,13 +29,22 @@ export async function loginApi(email, password) {
         })
         return response.data
     } catch (error) {
-        throw error.response?.data?.message || "Something went wrong";
+        throw error.response?.data?.message || "auth.api - Something went wrong";
     }
 }
 
 export async function getMeApi() {
     try {
         const response = await API.get("/me")
+        return response.data
+    } catch (error) {
+        throw error.response?.data?.message || "Something went wrong";
+    }
+}
+
+export async function logoutApi() {
+    try {
+        const response = await API.post("/logout")
         return response.data
     } catch (error) {
         throw error.response?.data?.message || "Something went wrong";
