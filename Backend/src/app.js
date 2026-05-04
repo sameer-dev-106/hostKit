@@ -22,10 +22,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: true,
     credentials: true
-}))
+}));
 
 // Passport configuration
 passport.use(new GoogleStrategy({
